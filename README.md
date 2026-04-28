@@ -44,7 +44,39 @@ npm run dev    # development with auto-reload
 npm start      # production
 ```
 
-Server runs on `http://localhost:5000`
+Server runs on `http://localhost:5050` (default — set `PORT` in `.env` to change)
+
+### 6. Seed sample data (optional but recommended)
+```bash
+npm run seed         # adds users/videos/comments only if missing
+npm run seed:reset   # WIPES the DB first, then seeds fresh
+```
+
+Creates:
+- **6 users** (admin, 2 active creators, 1 pending creator, 2 end users)
+- **6 sample videos** (uploaded to your Cloudinary)
+- **8 comments**
+
+Default credentials after seeding:
+| Role | Email | Password |
+|---|---|---|
+| Super Admin | admin@loopz.com | admin123 |
+| Content Creator | creator@loopz.com | creator123 |
+| Content Creator | jane@loopz.com | jane123 |
+| Pending Creator | pending@loopz.com | pending123 |
+| End User | john@loopz.com | user123 |
+| End User | sara@loopz.com | user123 |
+
+### 7. Bootstrap an admin (alternative to seeding)
+If you don't want to seed but need a Super Admin:
+1. Register a normal user via the app (e.g. `you@example.com`)
+2. Then call this **once**:
+   ```bash
+   curl -X POST http://localhost:5050/api/auth/bootstrap-admin \
+     -H "Content-Type: application/json" \
+     -d '{"email":"you@example.com"}'
+   ```
+3. The endpoint **self-locks** once a Super Admin exists — it cannot be used again.
 
 ---
 
@@ -56,6 +88,7 @@ Server runs on `http://localhost:5000`
 | POST | `/api/auth/register` | - | Create account |
 | POST | `/api/auth/login` | - | Get JWT token |
 | GET | `/api/auth/me` | Bearer | Get current user |
+| POST | `/api/auth/bootstrap-admin` | - | One-time: promote user to Super Admin if none exists |
 
 ### Videos
 | Method | Endpoint | Auth | Description |
