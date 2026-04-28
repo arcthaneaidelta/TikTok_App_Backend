@@ -81,3 +81,39 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   res.json({ user: req.user });
 };
+
+// POST /api/auth/bootstrap-admin
+// One-time use: promotes a user to superAdmin if no admin exists yet.
+// Body: { "email": "..." }
+exports.bootstrapAdmin = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Block if a super admin already exists
+    const existingAdmin = await User.findOne({ role: 'superAdmin' });
+    if (existingAdmin) {
+      return res.status(403).json({
+        message: 'A super admin already exists. This endpoint is no longer available.',
+      });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found. Please register first.' });
+    }
+
+    user.role = 'superAdmin';
+    user.status = 'active';
+    await user.save();
+
+    res.json({
+      message: `${user.username} has been promoted to Super Admin.`,
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
