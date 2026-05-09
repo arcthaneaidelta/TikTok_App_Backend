@@ -11,7 +11,7 @@ const {
   getLikedVideos,
 } = require('../controllers/videoController');
 const { protect, authorize } = require('../middleware/auth');
-const { upload } = require('../config/cloudinary');
+const { upload } = require('../config/storage');
 
 router.get('/feed', getFeed);
 router.get('/liked', protect, getLikedVideos);

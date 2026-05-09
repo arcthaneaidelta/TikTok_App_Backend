@@ -1,6 +1,6 @@
 const Video = require('../models/Video');
 const User = require('../models/User');
-const { cloudinary, uploadBufferToCloudinary } = require('../config/cloudinary');
+const { buildPublicUrl, removeStoredFile } = require('../config/storage');
 
 // GET /api/videos/feed
 exports.getFeed = async (req, res) => {
@@ -29,33 +29,32 @@ exports.uploadVideo = async (req, res) => {
       return res.status(400).json({ message: 'No video file provided' });
     }
 
-    const { title, musicName } = req.body;
+    const { title, musicName, durationSeconds } = req.body;
     if (!title) {
+      removeStoredFile(req.file.filename);
       return res.status(400).json({ message: 'Title is required' });
     }
 
-    // Stream the buffer to Cloudinary
-    const result = await uploadBufferToCloudinary(req.file.buffer);
-
-    // Cloudinary will already cap at 60s due to transformation, but double-check
-    if (result.duration && result.duration > 60.5) {
-      await cloudinary.uploader.destroy(result.public_id, { resource_type: 'video' });
+    const duration = Number(durationSeconds) || 0;
+    if (duration > 60.5) {
+      removeStoredFile(req.file.filename);
       return res.status(400).json({ message: 'Video exceeds 60 seconds limit' });
     }
 
     const video = await Video.create({
       title,
-      videoUrl: result.secure_url,
-      thumbnailUrl: result.secure_url.replace(/\.(mp4|mov|avi|mkv|webm)$/i, '.jpg'),
-      cloudinaryPublicId: result.public_id,
+      videoUrl: buildPublicUrl(req, req.file.filename),
+      thumbnailUrl: '',
+      storageKey: req.file.filename,
       creator: req.user._id,
       creatorUsername: req.user.username,
       musicName: musicName || null,
-      durationSeconds: result.duration || 0,
+      durationSeconds: duration,
     });
 
     res.status(201).json({ video });
   } catch (error) {
+    if (req.file) removeStoredFile(req.file.filename);
     res.status(500).json({ message: error.message });
   }
 };
@@ -127,10 +126,8 @@ exports.deleteVideo = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    if (video.cloudinaryPublicId) {
-      await cloudinary.uploader.destroy(video.cloudinaryPublicId, {
-        resource_type: 'video',
-      });
+    if (video.storageKey) {
+      removeStoredFile(video.storageKey);
     }
     await video.deleteOne();
     res.json({ message: 'Video deleted' });
