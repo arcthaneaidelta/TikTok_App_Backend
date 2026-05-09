@@ -1,6 +1,12 @@
 const Video = require('../models/Video');
 const User = require('../models/User');
-const { buildPublicUrl, removeStoredFile } = require('../config/storage');
+const {
+  buildPublicUrl,
+  buildThumbUrl,
+  removeStoredFile,
+  removeStoredThumb,
+  generateThumbnail,
+} = require('../config/storage');
 
 // GET /api/videos/feed
 exports.getFeed = async (req, res) => {
@@ -41,11 +47,14 @@ exports.uploadVideo = async (req, res) => {
       return res.status(400).json({ message: 'Video exceeds 60 seconds limit' });
     }
 
+    const thumbFilename = await generateThumbnail(req.file.filename);
+
     const video = await Video.create({
       title,
       videoUrl: buildPublicUrl(req, req.file.filename),
-      thumbnailUrl: '',
+      thumbnailUrl: thumbFilename ? buildThumbUrl(req, thumbFilename) : '',
       storageKey: req.file.filename,
+      thumbStorageKey: thumbFilename,
       creator: req.user._id,
       creatorUsername: req.user.username,
       musicName: musicName || null,
@@ -126,9 +135,8 @@ exports.deleteVideo = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    if (video.storageKey) {
-      removeStoredFile(video.storageKey);
-    }
+    if (video.storageKey) removeStoredFile(video.storageKey);
+    if (video.thumbStorageKey) removeStoredThumb(video.thumbStorageKey);
     await video.deleteOne();
     res.json({ message: 'Video deleted' });
   } catch (error) {
