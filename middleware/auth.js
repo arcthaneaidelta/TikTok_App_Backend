@@ -40,4 +40,27 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, authorize };
+// Verify JWT signature only — no DB lookup. Used for static-asset access
+// where the player may issue many byte-range requests per video.
+const protectStream = (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ message: 'Not authorized, no token' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.userId = decoded.id;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Not authorized, token failed' });
+  }
+};
+
+module.exports = { protect, authorize, protectStream };
