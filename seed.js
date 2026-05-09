@@ -8,78 +8,54 @@
  *   - 2 Content Creators (active)
  *   - 1 Content Creator (pending — for admin approval testing)
  *   - 2 End Users
- *   - 6 sample videos (uploaded to Cloudinary from public sample URLs)
+ *   - 6 sample videos (referencing public sample MP4 URLs)
  *   - 8 sample comments
  */
 require('dotenv').config();
 const mongoose = require('mongoose');
-const cloudinary = require('cloudinary').v2;
 const connectDB = require('./config/db');
 const User = require('./models/User');
 const Video = require('./models/Video');
 const Comment = require('./models/Comment');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 const SAMPLE_VIDEOS = [
   {
     title: 'Big Buck Bunny — Classic Animation',
-    sourceUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
+    videoUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
     musicName: 'Sintel Theme — OpenMovie',
     creator: 'creator_demo',
   },
   {
     title: 'Butterfly in Slow Motion',
-    sourceUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+    videoUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
     musicName: 'Nature Sounds — AmbientFM',
     creator: 'creator_demo',
   },
   {
     title: 'Quick Coffee Recipe ☕',
-    sourceUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
+    videoUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
     musicName: 'Morning Beats — JazzCafe',
     creator: 'foodie_jane',
   },
   {
     title: 'Sunset Time-lapse 🌅',
-    sourceUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+    videoUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
     musicName: 'Chill Vibes — LoFi',
     creator: 'foodie_jane',
   },
   {
     title: 'Dance Challenge 💃',
-    sourceUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
+    videoUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
     musicName: 'Pop Hit 2026 — DanceFloor',
     creator: 'creator_demo',
   },
   {
     title: 'Cute Pet Tricks 🐶',
-    sourceUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+    videoUrl: 'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
     musicName: 'Happy Tunes — KidsBeats',
     creator: 'foodie_jane',
   },
 ];
-
-async function uploadToCloudinary(sourceUrl) {
-  return new Promise((resolve, reject) => {
-    cloudinary.uploader.upload(
-      sourceUrl,
-      {
-        folder: 'loopz/videos',
-        resource_type: 'video',
-        transformation: [{ duration: '60' }, { quality: 'auto' }],
-      },
-      (err, result) => {
-        if (err) return reject(err);
-        resolve(result);
-      }
-    );
-  });
-}
 
 async function seed() {
   const reset = process.argv.includes('--reset');
@@ -118,7 +94,6 @@ async function seed() {
     users[u.username] = existing;
   }
 
-  // Skip videos if any already exist (avoid Cloudinary duplicates on rerun)
   const existingVideoCount = await Video.countDocuments();
   let createdVideos = [];
 
@@ -126,32 +101,28 @@ async function seed() {
     console.log(`📹 Skipping videos — ${existingVideoCount} already in DB. Use --reset to recreate.`);
     createdVideos = await Video.find();
   } else {
-    console.log('📹 Uploading sample videos to Cloudinary (this takes ~30s)...');
+    console.log('📹 Creating sample videos...');
     for (const v of SAMPLE_VIDEOS) {
       try {
         const creator = users[v.creator];
         if (!creator) continue;
 
-        process.stdout.write(`   → Uploading: ${v.title}... `);
-        const cloud = await uploadToCloudinary(v.sourceUrl);
-
         const video = await Video.create({
           title: v.title,
-          videoUrl: cloud.secure_url,
-          thumbnailUrl: cloud.secure_url.replace(/\.(mp4|mov|avi|mkv|webm)$/i, '.jpg'),
-          cloudinaryPublicId: cloud.public_id,
+          videoUrl: v.videoUrl,
+          thumbnailUrl: '',
           creator: creator._id,
           creatorUsername: creator.username,
           musicName: v.musicName,
-          durationSeconds: cloud.duration || 0,
+          durationSeconds: 0,
           views: Math.floor(Math.random() * 50000) + 1000,
           likes: Math.floor(Math.random() * 5000) + 50,
           shares: Math.floor(Math.random() * 200) + 5,
         });
         createdVideos.push(video);
-        console.log('✓');
+        console.log(`   ✓ ${v.title}`);
       } catch (err) {
-        console.log(`✗ (${err.message})`);
+        console.log(`   ✗ ${v.title} (${err.message})`);
       }
     }
   }

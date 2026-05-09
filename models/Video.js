@@ -6,7 +6,6 @@ const videoSchema = new mongoose.Schema(
     videoUrl: { type: String, required: true },
     thumbnailUrl: { type: String, default: '' },
     storageKey: { type: String, default: null },
-    cloudinaryPublicId: { type: String, default: null },
     creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     creatorUsername: { type: String, required: true },
     musicName: { type: String, default: null },

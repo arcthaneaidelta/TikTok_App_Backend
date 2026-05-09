@@ -1,6 +1,6 @@
 # Loopz Backend
 
-Node.js + Express + MongoDB + Cloudinary backend for the Loopz short-video platform.
+Node.js + Express + MongoDB backend for the Loopz short-video platform. Videos are stored on a local/persistent volume and served as static files.
 
 ## Setup
 
@@ -19,9 +19,8 @@ Edit `.env` and fill in:
 PORT=5000
 MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.xxxxx.mongodb.net/loopz?retryWrites=true&w=majority
 JWT_SECRET=your_random_secret_string
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+UPLOAD_DIR=                # leave blank locally (defaults to ./uploads); on Railway set to your volume mount, e.g. /data
+PUBLIC_URL=                # leave blank locally; on Railway set to https://<your-domain>
 ```
 
 ### 4. Get your credentials
@@ -32,10 +31,6 @@ CLOUDINARY_API_SECRET=your_api_secret
 3. Database Access → Add database user
 4. Network Access → Add IP `0.0.0.0/0` (allow all, for dev)
 5. Connect → Drivers → Copy connection string → paste into `MONGODB_URI`
-
-**Cloudinary (free):**
-1. Go to [cloudinary.com/console](https://cloudinary.com/console)
-2. Copy `Cloud Name`, `API Key`, `API Secret` from the dashboard
 
 ### 5. Run the server
 ```bash
@@ -54,7 +49,7 @@ npm run seed:reset   # WIPES the DB first, then seeds fresh
 
 Creates:
 - **6 users** (admin, 2 active creators, 1 pending creator, 2 end users)
-- **6 sample videos** (uploaded to your Cloudinary)
+- **6 sample videos** (referencing public sample MP4 URLs)
 - **8 comments**
 
 Default credentials after seeding:
@@ -128,7 +123,7 @@ backend/
 ├── .env.example           # Template
 ├── config/
 │   ├── db.js              # MongoDB connection
-│   └── cloudinary.js      # Cloudinary + multer storage
+│   └── storage.js         # Multer disk storage + public-URL helper
 ├── models/
 │   ├── User.js
 │   ├── Video.js
@@ -150,11 +145,12 @@ backend/
 
 ---
 
-## Deploy to Render.com (free)
-1. Push backend to a GitHub repo
-2. Go to [render.com](https://render.com) → New Web Service
-3. Connect repo, set:
-   - Build: `npm install`
-   - Start: `npm start`
-4. Add environment variables from `.env`
-5. Deploy → copy the URL → use it in the Flutter app
+## Deploy to Railway
+
+1. Push the backend to a GitHub repo and create a new Railway service from it.
+2. **Add a Volume** to the service. Set the mount path (e.g. `/data`) — this is where uploaded videos live (50 GB on the free tier).
+3. Add environment variables:
+   - `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `CLIENT_URL` — same as `.env`
+   - `UPLOAD_DIR=/data` (must match the volume mount path)
+   - `PUBLIC_URL=https://<your-railway-domain>` (no trailing slash)
+4. Deploy. Uploaded videos are served from `https://<your-railway-domain>/uploads/videos/<file>` and survive redeploys.
