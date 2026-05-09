@@ -53,40 +53,61 @@ const removeStoredThumb = (filename) => {
   fs.unlink(path.join(THUMBS_DIR, filename), () => {});
 };
 
-// Generate a JPEG thumbnail from a video using ffmpeg. Resolves to the
-// thumbnail filename on success, or null if ffmpeg is unavailable / fails.
-const generateThumbnail = (videoFilename) => {
+const _runFfmpeg = (videoPath, thumbPath, seekTime) => {
   return new Promise((resolve) => {
-    const videoPath = path.join(VIDEOS_DIR, videoFilename);
-    const thumbFilename = `${path.parse(videoFilename).name}.jpg`;
-    const thumbPath = path.join(THUMBS_DIR, thumbFilename);
     const args = [
       '-y',
-      '-ss', '00:00:00.5',
+      '-ss', seekTime,
       '-i', videoPath,
       '-vframes', '1',
       '-vf', "scale='min(640,iw)':-2",
       '-q:v', '4',
       thumbPath,
     ];
+    let stderr = '';
     let settled = false;
-    const done = (filename) => {
-      if (!settled) {
-        settled = true;
-        resolve(filename);
-      }
+    const finish = (ok, reason) => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok, reason });
     };
     try {
-      const ff = spawn('ffmpeg', args, { stdio: 'ignore' });
-      ff.on('error', () => done(null));
+      const ff = spawn('ffmpeg', args);
+      ff.stderr.on('data', (d) => { stderr += d.toString(); });
+      ff.on('error', (err) => finish(false, `spawn error: ${err.message}`));
       ff.on('close', (code) => {
-        if (code === 0 && fs.existsSync(thumbPath)) done(thumbFilename);
-        else done(null);
+        if (code === 0 && fs.existsSync(thumbPath)) finish(true, null);
+        else finish(false, `exit ${code}: ${stderr.slice(-400)}`);
       });
-    } catch (_) {
-      done(null);
+    } catch (err) {
+      finish(false, `sync error: ${err.message}`);
     }
   });
+};
+
+// Generate a JPEG thumbnail from a video using ffmpeg. Resolves to the
+// thumbnail filename on success, or null if ffmpeg is unavailable / fails.
+// Tries 0.5s into the video first, falls back to frame 0 for very short clips.
+const generateThumbnail = async (videoFilename) => {
+  const videoPath = path.join(VIDEOS_DIR, videoFilename);
+  if (!fs.existsSync(videoPath)) {
+    console.warn(`[thumb] source missing: ${videoPath}`);
+    return null;
+  }
+  const thumbFilename = `${path.parse(videoFilename).name}.jpg`;
+  const thumbPath = path.join(THUMBS_DIR, thumbFilename);
+
+  let result = await _runFfmpeg(videoPath, thumbPath, '00:00:00.5');
+  if (!result.ok) {
+    console.warn(`[thumb] first attempt failed for ${videoFilename}: ${result.reason}`);
+    result = await _runFfmpeg(videoPath, thumbPath, '00:00:00');
+  }
+  if (!result.ok) {
+    console.error(`[thumb] both attempts failed for ${videoFilename}: ${result.reason}`);
+    return null;
+  }
+  console.log(`[thumb] generated ${thumbFilename}`);
+  return thumbFilename;
 };
 
 module.exports = {

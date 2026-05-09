@@ -7,6 +7,7 @@ const {
   approveCreator,
   rejectCreator,
   getAllVideos,
+  backfillThumbnails,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -19,5 +20,6 @@ router.get('/pending', getPendingCreators);
 router.get('/videos', getAllVideos);
 router.put('/approve/:id', approveCreator);
 router.put('/reject/:id', rejectCreator);
+router.post('/backfill-thumbs', backfillThumbnails);
 
 module.exports = router;

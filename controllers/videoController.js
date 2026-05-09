@@ -77,8 +77,10 @@ exports.incrementView = async (req, res) => {
       { new: true }
     );
     if (!video) return res.status(404).json({ message: 'Video not found' });
+    console.log(`[view] ${video._id} → ${video.views}`);
     res.json({ video });
   } catch (error) {
+    console.error(`[view] error ${req.params.id}:`, error.message);
     res.status(500).json({ message: error.message });
   }
 };
@@ -115,8 +117,10 @@ exports.incrementShare = async (req, res) => {
       { new: true }
     );
     if (!video) return res.status(404).json({ message: 'Video not found' });
+    console.log(`[share] ${video._id} → ${video.shares}`);
     res.json({ video });
   } catch (error) {
+    console.error(`[share] error ${req.params.id}:`, error.message);
     res.status(500).json({ message: error.message });
   }
 };
